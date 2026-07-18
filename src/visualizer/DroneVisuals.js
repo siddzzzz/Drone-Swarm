@@ -154,6 +154,17 @@ export class DroneVisuals {
         const newColor = new THREE.Color(colorHex);
         droneVisual.ledMesh.material.color.copy(newColor);
         droneVisual.line.material.color.copy(newColor);
+        
+        // Hide trail completely and reset history when entering standby
+        if (colorHex === "#151720") {
+          droneVisual.line.material.opacity = 0.0;
+          for (let i = 0; i < droneVisual.points.length; i++) {
+            droneVisual.points[i].copy(pos);
+          }
+        } else {
+          droneVisual.line.material.opacity = 0.45;
+        }
+        
         droneVisual.color = colorHex;
       }
       
