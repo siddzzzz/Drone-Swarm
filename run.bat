@@ -24,3 +24,10 @@ echo  - Python Backend: ws://127.0.0.1:8765
 echo =====================================================================
 echo  Press any key in this window to close.
 pause
+
+echo [SYSTEM] Terminating active processes...
+taskkill /F /T /FI "WINDOWTITLE eq CyberSwarm - Backend Engine*" >nul 2>&1
+taskkill /F /T /FI "WINDOWTITLE eq CyberSwarm - GCS Dashboard*" >nul 2>&1
+echo [SYSTEM] All services terminated cleanly.
+timeout /t 2 >nul
+exit
