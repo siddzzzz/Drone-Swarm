@@ -36,10 +36,10 @@ class SimulatorServer:
         # 2. Instantiate individual independent drones and set their waypoints in a temporary list
         temp_drones = []
         for i in range(self.num_drones):
-            waypoints, times, loop = swarm_missions[i]
+            waypoints, times, loop, colors = swarm_missions[i]
             start_pos = waypoints[0] if len(waypoints) > 0 else [0.0, 0.0, 0.0]
             drone = Drone(drone_id=i, initial_pos=start_pos)
-            drone.set_mission_waypoints(waypoints, times, loop=loop)
+            drone.set_mission_waypoints(waypoints, times, loop=loop, colors=colors)
             temp_drones.append(drone)
             
         # 3. Pre-compute and cache reference paths for GCS path lines (only once per shape reset!)

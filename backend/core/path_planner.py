@@ -4,7 +4,8 @@ from core.swarm_coordinator import SwarmCoordinator
 class PathPlanner:
     """
     Trajectory planner that generates sparse, scheduled mission waypoints and times
-    for the entire drone swarm at once. This avoids redundant calculations.
+    for the entire drone swarm at once. This avoids redundant calculations and handles
+    minimum spacing safety thresholds and unlit standby modes.
     """
     
     @staticmethod
@@ -69,81 +70,124 @@ class PathPlanner:
     @classmethod
     def plan_for_swarm(cls, num_drones, path_type="circle", base_height=5.0):
         """
-        Plans schedules (waypoints, times, loop) for all drones in the swarm at once.
-        This calculates shape assignments using Hungarian matching in a single pass.
-        Returns a list of tuples: [(waypoints_i, times_i, loop_i) for i in range(num_drones)]
+        Plans schedules (waypoints, times, loop, colors) for all drones in the swarm at once.
+        Enforces safety margins using SwarmCoordinator.enforce_spacing. Drones that cannot
+        fit are automatically switched off (LEDs off) and put in low hover standby.
         """
         swarm_missions = []
         
-        # 1. SHOW CHOREOGRAPHY MODE (Optimized single pass)
+        # 1. SHOW CHOREOGRAPHY MODE (Shape morphing show with hover holds & spacing validation)
         if path_type == "show":
-            # Timestamps including Hold intervals:
-            # 0.0s: Grid ground takeoff start
-            # 4.0s: Grid hover reached (3m)
-            # 7.0s: Grid hover end (hold for 3s)
-            # 15.0s: Sphere reached (morph takes 8s)
-            # 19.0s: Sphere end (hold for 4s)
-            # 27.0s: Star reached (morph takes 8s)
-            # 31.0s: Star end (hold for 4s)
-            # 39.0s: Heart reached (morph takes 8s)
-            # 43.0s: Heart end (hold for 4s)
-            # 51.0s: Pyramid reached (morph takes 8s)
-            # 55.0s: Pyramid end (hold for 4s)
-            # 63.0s: Landing hover reached (morph takes 8s)
-            # 66.0s: Landing hover end (hold for 3s)
-            # 70.0s: Landing complete
+            # Timestamps including Hold intervals (14 key waypoint entries)
             times = [0.0, 4.0, 7.0, 15.0, 19.0, 27.0, 31.0, 39.0, 43.0, 51.0, 55.0, 63.0, 66.0, 70.0]
             
-            # Generate shapes
+            # Generate grids
             grid_base = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=0.0)
             grid_hover = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=3.0)
+            grid_standby = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=1.0)
             
-            sphere = SwarmCoordinator.get_sphere_shape(num_drones, radius=7.0, center_height=7.5)
-            star = SwarmCoordinator.get_star_shape(num_drones, radius=8.0, center_height=7.5)
-            heart = SwarmCoordinator.get_heart_shape(num_drones, scale=0.45, center_height=7.8)
-            pyramid = SwarmCoordinator.get_pyramid_shape(num_drones, base_width=9.0, height=7.0, base_height=3.0)
+            # Master records for each drone
+            drone_wps = [[grid_base[i]] for i in range(num_drones)]
+            drone_colors = [["#00F2FE"] for i in range(num_drones)] # Takeoff LED starts Cyan
             
-            # Solve Hungarian target assignments sequentially
-            hover_targets = grid_hover
-            
-            sphere_cols = SwarmCoordinator.solve_optimal_assignment(hover_targets, sphere)
-            sphere_targets = [sphere[idx] for idx in sphere_cols]
-            
-            star_cols = SwarmCoordinator.solve_optimal_assignment(sphere_targets, star)
-            star_targets = [star[idx] for idx in star_cols]
-            
-            heart_cols = SwarmCoordinator.solve_optimal_assignment(star_targets, heart)
-            heart_targets = [heart[idx] for idx in heart_cols]
-            
-            pyr_cols = SwarmCoordinator.solve_optimal_assignment(heart_targets, pyramid)
-            pyr_targets = [pyramid[idx] for idx in pyr_cols]
-            
-            land_hover_targets = grid_hover
-            land_targets = grid_base
-            
-            # Assemble scheduled waypoints for each drone
+            # Takeoff hover phase (t=4s, t=7s)
             for i in range(num_drones):
-                drone_wps = [
-                    grid_base[i],
-                    hover_targets[i],
-                    hover_targets[i],       # Hover hold
-                    sphere_targets[i],
-                    sphere_targets[i],      # Sphere hold
-                    star_targets[i],
-                    star_targets[i],        # Star hold
-                    heart_targets[i],
-                    heart_targets[i],       # Heart hold
-                    pyr_targets[i],
-                    pyr_targets[i],         # Pyramid hold
-                    land_hover_targets[i],
-                    land_hover_targets[i],  # Landing hover hold
-                    land_targets[i]
-                ]
-                swarm_missions.append((drone_wps, times, True))
+                drone_wps[i].append(grid_hover[i])
+                drone_wps[i].append(grid_hover[i])
+                drone_colors[i].append("#00F2FE")
+                drone_colors[i].append("#00F2FE")
+                
+            # Sequence of target shapes, their coordinate generators, and active colors
+            shapes_schedule = [
+                # Sphere (t=15s, hold until 19s)
+                ("sphere", lambda n: SwarmCoordinator.get_sphere_shape(n, radius=8.0, center_height=10.0), "#0055FF"),
+                # Star (t=27s, hold until 31s)
+                ("star", lambda n: SwarmCoordinator.get_star_shape(n, radius=9.0, center_height=10.0), "#FFD700"),
+                # Heart (t=39s, hold until 43s)
+                ("heart", lambda n: SwarmCoordinator.get_heart_shape(n, scale=0.55, center_height=10.0), "#FF2A5F"),
+                # Pyramid (t=51s, hold until 55s)
+                ("pyramid", lambda n: SwarmCoordinator.get_pyramid_shape(n, base_width=11.0, height=9.0, base_height=4.0), "#39FF14")
+            ]
+            
+            for shape_name, shape_gen, shape_color in shapes_schedule:
+                # 1. Grab current position of each drone (last assigned waypoint)
+                prev_positions = [drone_wps[i][-1] for i in range(num_drones)]
+                
+                # 2. Generate raw shape coordinates
+                raw_shape_points = shape_gen(num_drones)
+                
+                # 3. Enforce spacing and scale up or prune extra drones
+                # We enforce d_min safety margin = 1.4 meters, max scale = 2.0x
+                fitted_points, pruned_indices = SwarmCoordinator.enforce_spacing(
+                    raw_shape_points, d_min=1.4, max_scale_factor=2.0
+                )
+                
+                M = len(fitted_points)
+                
+                # 4. Safety Ground Shift: Shift shape upwards if it drops below the 2.0m safety margin
+                if M > 0:
+                    min_z = min(pt[2] for pt in fitted_points)
+                    if min_z < 2.0:
+                        z_shift = 2.0 - min_z
+                        fitted_points = [np.array([pt[0], pt[1], pt[2] + z_shift]) for pt in fitted_points]
+                
+                # 4. Construct cost matrix to pair drones to shapes or standby targets
+                # If a drone doesn't fit, it is assigned to its own grid column at standby height (1m)
+                C = np.zeros((num_drones, num_drones))
+                for i in range(num_drones):
+                    for j in range(num_drones):
+                        if j < M:
+                            diff = prev_positions[i] - fitted_points[j]
+                            C[i, j] = np.sum(diff * diff)
+                        else:
+                            standby_idx = j - M
+                            if standby_idx == i:
+                                diff = prev_positions[i] - grid_standby[i]
+                                C[i, j] = np.sum(diff * diff)
+                            else:
+                                C[i, j] = 1e6 # force diagonal assignment for standby
+                                
+                # 5. Solve linear sum assignment
+                cols = SwarmCoordinator.solve_cost_matrix(C)
+                
+                # 6. Store waypoints and colors
+                for i in range(num_drones):
+                    target_col = cols[i]
+                    if target_col < M:
+                        # Fits in shape: active
+                        target_pos = fitted_points[target_col]
+                        target_color = shape_color
+                    else:
+                        # Pruned: Standby unlit hover
+                        target_pos = grid_standby[i]
+                        target_color = "#151720" # LED OFF color
+                        
+                    # Add reach waypoint and hold waypoint
+                    drone_wps[i].append(target_pos)
+                    drone_wps[i].append(target_pos)
+                    drone_colors[i].append(target_color)
+                    drone_colors[i].append(target_color)
+                    
+            # Return to landing hover (t=63s, hold until 66s)
+            for i in range(num_drones):
+                drone_wps[i].append(grid_hover[i])
+                drone_wps[i].append(grid_hover[i])
+                drone_colors[i].append("#00F2FE")
+                drone_colors[i].append("#00F2FE")
+                
+            # Ground touchdown landing (t=70s)
+            for i in range(num_drones):
+                drone_wps[i].append(grid_base[i])
+                drone_colors[i].append("#8A2BE2") # purple land LED
+                
+            # Package mission tuples
+            for i in range(num_drones):
+                swarm_missions.append((drone_wps[i], times, True, drone_colors[i]))
                 
             return swarm_missions
             
         # 2. PATH MODES (Circle, Figure-8, Helix)
+        neon_colors = ["#00f2fe", "#4facfe", "#39ff14", "#ff2a5f", "#ffdf00", "#ff007f", "#8a2be2", "#ff4500"]
         for i in range(num_drones):
             # Single Drone
             if num_drones == 1:
@@ -157,7 +201,6 @@ class PathPlanner:
             # Swarm scale (more than 1 drone)
             else:
                 if path_type == "circle":
-                    # Layered concentric circles
                     ring_idx = i // 10 if num_drones > 10 else i
                     idx_in_ring = i % 10 if num_drones > 10 else 0
                     rings_count = max(1, num_drones // 10)
@@ -167,7 +210,6 @@ class PathPlanner:
                     
                     base_wps, times, loop = cls.get_circle_waypoints(radius=radius, height=height, total_time=25.0)
                     
-                    # Distribute starting positions via phase shift
                     shift_fraction = idx_in_ring / (10.0 if num_drones > 10 else num_drones)
                     shifted_wps = []
                     num_wps = len(base_wps) - 1
@@ -179,7 +221,6 @@ class PathPlanner:
                     wps, times, loop = shifted_wps, times, loop
                     
                 elif path_type == "figure_eight":
-                    # Layered Figure-Eights
                     layers_count = max(1, num_drones // 20)
                     layer = i // 20 if num_drones > 20 else i
                     idx_in_layer = i % 20 if num_drones > 20 else 0
@@ -198,7 +239,6 @@ class PathPlanner:
                     wps, times, loop = shifted_wps, times, loop
                     
                 else: # helix
-                    # Staggered Helix spirals
                     helixes_count = 4
                     helix_id = i // (num_drones // helixes_count) if num_drones >= helixes_count else i
                     idx_in_helix = i % (num_drones // helixes_count) if num_drones >= helixes_count else 0
@@ -220,6 +260,8 @@ class PathPlanner:
                     times = [t_idx * dt for t_idx in range(num_points)]
                     loop = False
                     
-            swarm_missions.append((wps, times, loop))
+            c_hex = neon_colors[i % len(neon_colors)]
+            colors = [c_hex] * len(wps)
+            swarm_missions.append((wps, times, loop, colors))
             
         return swarm_missions

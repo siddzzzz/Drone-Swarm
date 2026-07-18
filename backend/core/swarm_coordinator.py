@@ -170,3 +170,56 @@ class SwarmCoordinator:
                 
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
         return col_ind  # mapping: drone_i goes to target_positions[col_ind[i]]
+
+    @staticmethod
+    def enforce_spacing(points, d_min=1.4, max_scale_factor=2.0):
+        """
+        Validates minimum distance between shape points. 
+        First attempts to scale up the shape to satisfy spacing.
+        If it exceeds max scaling, returns the scaled points and prunes
+        any remaining points that violate the safety margin.
+        """
+        n = len(points)
+        if n <= 1:
+            return points, []
+
+        pts = np.array(points)
+        center = np.mean(pts, axis=0)
+        
+        # Calculate current minimum distance
+        min_d = float('inf')
+        for i in range(n):
+            for j in range(i + 1, n):
+                d = np.linalg.norm(pts[i] - pts[j])
+                if d < min_d:
+                    min_d = d
+                    
+        # 1. Attempt scaling up if points are closer than d_min
+        if min_d < d_min and min_d > 1e-5:
+            required_scale = d_min / min_d
+            scale_factor = min(required_scale, max_scale_factor)
+            # Apply scaling relative to shape center
+            pts = center + (pts - center) * scale_factor
+            
+        # 2. Prune points that still violate spacing
+        fitted_points = []
+        pruned_indices = []
+        
+        for idx, pt in enumerate(pts):
+            fits = True
+            for f_pt in fitted_points:
+                if np.linalg.norm(pt - f_pt) < d_min:
+                    fits = False
+                    break
+            if fits:
+                fitted_points.append(pt)
+            else:
+                pruned_indices.append(idx)
+                
+        return [np.array(p) for p in fitted_points], pruned_indices
+
+    @staticmethod
+    def solve_cost_matrix(cost_matrix):
+        """Solves the assignment problem directly on a pre-computed cost matrix."""
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        return col_ind

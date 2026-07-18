@@ -15,6 +15,7 @@ class Drone:
         # Local Trajectory Planning (Independent)
         self.waypoints = []        # List of numpy arrays representing key locations
         self.waypoint_times = []   # List of timestamps (seconds) when each waypoint must be reached
+        self.waypoint_colors = []  # List of HEX colors for each segment/waypoint
         self.local_time = 0.0      # Current internal clock (seconds)
         self.path_loop = True      # Should the path repeat after completion?
         self.is_kinematic = True   # Kinematic (Step 1) vs Dynamic (Step 2+)
@@ -27,18 +28,25 @@ class Drone:
         self.max_thrust = 25.0
         self.tilt_angles = [0.0, 0.0]
 
-    def set_mission_waypoints(self, waypoints, times, loop=True):
+    def set_mission_waypoints(self, waypoints, times, loop=True, colors=None):
         """
-        Sets the sparse mission waypoints and times.
+        Sets the sparse mission waypoints, times, and step LED colors.
         Each drone plans its own trajectory solution based on this scheduling list.
         """
         self.waypoints = [np.array(wp, dtype=np.float64) for wp in waypoints]
         self.waypoint_times = list(times)
         self.path_loop = loop
         self.local_time = 0.0
+        
+        if colors is not None:
+            self.waypoint_colors = list(colors)
+        else:
+            self.waypoint_colors = ["#00F2FE"] * len(self.waypoints)
+            
         if len(self.waypoints) > 0:
             self.target_pos = np.copy(self.waypoints[0])
             self.position = np.copy(self.waypoints[0])
+            self.color = self.waypoint_colors[0]
 
     def evaluate_trajectory(self, t):
         """
@@ -102,46 +110,43 @@ class Drone:
         return target
 
     def update_led_color(self):
-        """Updates LED color dynamically based on mission phase or drone ID."""
-        is_show = len(self.waypoint_times) == 14 and self.waypoint_times[-1] == 70.0
+        """Updates LED color dynamically based on its active path segment settings."""
+        n = len(self.waypoints)
+        if n == 0 or len(self.waypoint_colors) == 0:
+            return
+            
+        t = self.local_time
+        t_end = self.waypoint_times[-1]
         
-        if is_show:
-            t = self.local_time
-            t_end = self.waypoint_times[-1]
-            if t >= t_end and self.path_loop:
-                t = t % t_end
-                
-            if t < 4.0:
-                self.color = "#00F2FE"  # Cyan (Takeoff)
-                self.state = "TAKEOFF"
-            elif t < 7.0:
-                self.color = "#00F2FE"  # Cyan (Hover Grid Hold)
-                self.state = "FLYING"
-            elif t < 19.0:
-                self.color = "#0055FF"  # Blue (Sphere & Hold)
-                self.state = "FLYING"
-            elif t < 31.0:
-                self.color = "#FFD700"  # Gold/Yellow (Star & Hold)
-                self.state = "FLYING"
-            elif t < 43.0:
-                self.color = "#FF2A5F"  # Crimson/Pink (Heart & Hold)
-                self.state = "FLYING"
-            elif t < 55.0:
-                self.color = "#39FF14"  # Lime Green (Pyramid & Hold)
-                self.state = "FLYING"
-            elif t < 66.0:
-                self.color = "#00F2FE"  # Cyan (Landing Hover Hold)
-                self.state = "FLYING"
+        # Handle wrap around for loop
+        if t >= t_end:
+            if self.path_loop:
+                duration = t_end - self.waypoint_times[0]
+                t = self.waypoint_times[0] + ((t - self.waypoint_times[0]) % duration)
             else:
-                self.color = "#8A2BE2"  # Purple (Landing)
-                self.state = "LANDING"
+                self.color = self.waypoint_colors[-1]
+                if self.color == "#151720":
+                    self.state = "STANDBY"
+                return
+                
+        # Find active segment
+        idx = 0
+        for i in range(n - 1):
+            if self.waypoint_times[i] <= t < self.waypoint_times[i+1]:
+                idx = i
+                break
+                
+        # Match color of active segment
+        self.color = self.waypoint_colors[idx]
+        
+        # Update flight state based on color/height/segment
+        if self.color == "#151720":
+            self.state = "STANDBY"
+        elif idx == 0:
+            self.state = "TAKEOFF"
+        elif idx == n - 2:
+            self.state = "LANDING"
         else:
-            # Generate static distinct rainbow hue based on drone ID
-            neon_colors = [
-                "#00f2fe", "#4facfe", "#39ff14", "#ff2a5f", 
-                "#ffdf00", "#ff007f", "#8a2be2", "#ff4500"
-            ]
-            self.color = neon_colors[self.id % len(neon_colors)]
             self.state = "FLYING"
 
     def update(self, dt):
