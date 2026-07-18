@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberSwarm GCS - 3D Swarm Control & Simulation Cockpit</title>
+  <!-- Google Fonts for futuristic look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <!-- Three.js Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Telemetry Connection Status -->
+  <div id="connection-status" class="status-badge disconnected">
+    <div class="status-dot"></div>
+    <span class="status-text">OFFLINE</span>
+  </div>
+
+  <!-- UI HUD Layout -->
+  <div id="gcs-hud">
+    <!-- TOP BAR: Brand & General Stats -->
+    <header class="top-bar glass">
+      <div class="logo">
+        <span class="glow-text">CYBERSWARM</span>
+        <span class="sub-logo">GCS // SIMULATOR</span>
+      </div>
+      <div class="quick-stats">
+        <div class="stat-box">
+          <span class="stat-label">ACTIVE DRONES</span>
+          <span id="stat-drone-count" class="stat-value text-cyan">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">COLLISIONS</span>
+          <span id="stat-collisions" class="stat-value text-red">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">AVG BATTERY</span>
+          <span id="stat-avg-battery" class="stat-value text-green">100%</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">FPS</span>
+          <span id="stat-fps" class="stat-value">60</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- LEFT PANEL: Core Control & Step Progression -->
+    <section class="left-panel panel glass">
+      <div class="panel-section">
+        <h3>SIMULATION STEP</h3>
+        <div class="step-selector">
+          <button class="step-btn active" data-step="1">
+            <span class="step-num">01</span>
+            <div class="step-info">
+              <span class="step-title">Trajectory Planning</span>
+              <span class="step-sub">2D & 3D Splines</span>
+            </div>
+          </button>
+          <button class="step-btn locked" data-step="2" disabled>
+            <span class="step-num">02</span>
+            <div class="step-info">
+              <span class="step-title">PID Flight Control</span>
+              <span class="step-sub">Quadcopter Translation</span>
+            </div>
+          </button>
+          <button class="step-btn locked" data-step="3" disabled>
+            <span class="step-num">03</span>
+            <div class="step-info">
+              <span class="step-title">Physics & Wind</span>
+              <span class="step-sub">Disturbances & Failsafes</span>
+            </div>
+          </button>
+          <button class="step-btn locked" data-step="4" disabled>
+            <span class="step-num">04</span>
+            <div class="step-info">
+              <span class="step-title">Swarm Formations</span>
+              <span class="step-sub">APF & Hungarian Solver</span>
+            </div>
+          </button>
+          <button class="step-btn locked" data-step="5" disabled>
+            <span class="step-num">05</span>
+            <div class="step-info">
+              <span class="step-title">Drone Show</span>
+              <span class="step-sub">Choreographed Orchestrator</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>SWARM SCALE</h3>
+        <div class="scale-selector toggle-group" style="grid-template-columns: repeat(5, 1fr);">
+          <button class="toggle-btn" data-scale="1">1</button>
+          <button class="toggle-btn active" data-scale="10">10</button>
+          <button class="toggle-btn" data-scale="30">30</button>
+          <button class="toggle-btn" data-scale="60">60</button>
+          <button class="toggle-btn" data-scale="100">100</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: Environment & Parameter Configuration -->
+    <section class="right-panel panel glass">
+      <div class="panel-section">
+        <h3>PATH CONFIGURATION</h3>
+        <div class="path-selector toggle-group" style="grid-template-columns: repeat(4, 1fr);">
+          <button class="toggle-btn active" data-path="circle">Circle</button>
+          <button class="toggle-btn" data-path="figure_eight">Fig-8</button>
+          <button class="toggle-btn" data-path="helix">Helix</button>
+          <button class="toggle-btn" data-path="show" style="border: 1px solid rgba(255, 42, 95, 0.15);">SHOW</button>
+        </div>
+      </div>
+
+      <!-- Live Interactive Panel based on current step -->
+      <div class="panel-section dynamic-controls">
+        <h3>STEP CONFIGURATION</h3>
+        <div id="step-configs-container">
+          <!-- Step 1 Configs -->
+          <div id="step-1-controls" class="step-controls-panel active">
+            <p class="description-text">
+              We are in <strong>Step 1: Trajectory Planning</strong>. 
+              The drones are utilizing <strong>Catmull-Rom splines</strong> to calculate smooth curves between waypoints rather than moving in rigid straight lines.
+            </p>
+            <div class="bullet-list">
+              <div class="bullet-item"><span class="bullet-dot text-cyan">•</span> <span><strong>2D Paths</strong>: Flat orbital flight (Circle & Fig-8).</span></div>
+              <div class="bullet-item"><span class="bullet-dot text-cyan">•</span> <span><strong>3D Helix</strong>: Spiraling altitude trajectories.</span></div>
+              <div class="bullet-item"><span class="bullet-dot text-pink">•</span> <span><strong>SHOW Mode</strong>: Coordinated morphing (Takeoff -> Sphere -> Star -> Heart -> Pyramid -> Land) with synced color shifts!</span></div>
+            </div>
+            <div class="info-alert">
+              <strong>Scale Progression:</strong> Try 1 drone (solo routine), 10 drones (basic shape outlines), or 100 drones (full detailed sky shapes with optimized paths).
+            </div>
+          </div>
+          
+          <!-- Step 2 Controls Placeholder -->
+          <div id="step-2-controls" class="step-controls-panel">
+            <!-- Will be populated in Step 2 -->
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>CAMERA CONFIG</h3>
+        <div class="camera-helpers">
+          <button id="btn-cam-orbit" class="btn btn-secondary">Orbit view</button>
+          <button id="btn-cam-top" class="btn btn-secondary">Top view (2D)</button>
+          <button id="btn-cam-front" class="btn btn-secondary">Front view</button>
+        </div>
+        <p class="camera-tip">Tip: Drag with Left Mouse Button to rotate, scroll wheel to zoom, Right Mouse Button to pan.</p>
+      </div>
+    </section>
+
+    <!-- BOTTOM PANEL: Interactive Explanation & Diagnostic Terminal -->
+    <footer class="bottom-panel glass">
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <span class="terminal-title">GCS DIAGNOSTICS & TELEMETRY</span>
+          <span class="terminal-indicator">RUNNING</span>
+        </div>
+        <div id="terminal-log" class="terminal-log">
+          <div class="log-line text-cyan">[SYSTEM] GCS Interface ready. Waiting for python simulator connection on port 8765...</div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
