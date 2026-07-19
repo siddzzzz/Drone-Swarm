@@ -26,9 +26,9 @@ class SimulatorServer:
         self.kp_xy = 3.5
         self.ki_xy = 0.15
         self.kd_xy = 2.2
-        self.kp_z = 4.5
-        self.ki_z = 0.2
-        self.kd_z = 2.8
+        self.kp_z = 3.0
+        self.ki_z = 0.05
+        self.kd_z = 3.2
         
         self.reset_simulation()
         
