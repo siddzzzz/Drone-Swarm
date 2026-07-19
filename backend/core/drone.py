@@ -21,11 +21,10 @@ class Drone:
         self.is_kinematic = True   # Kinematic (Step 1) vs Dynamic (Step 2+)
         
         # PID controllers and physical properties
-        self.pid_x = None
-        self.pid_y = None
-        self.pid_z = None
+        from core.controller import PositionController3D
+        self.controller = PositionController3D()
         self.mass = 1.2
-        self.max_thrust = 25.0
+        self.max_thrust = 35.0
         self.tilt_angles = [0.0, 0.0]
 
     def set_mission_waypoints(self, waypoints, times, loop=True, colors=None):
@@ -47,6 +46,10 @@ class Drone:
             self.target_pos = np.copy(self.waypoints[0])
             self.position = np.copy(self.waypoints[0])
             self.color = self.waypoint_colors[0]
+
+    def set_pid_gains(self, kp_xy, ki_xy, kd_xy, kp_z, ki_z, kd_z):
+        """Updates internal PositionController3D parameters."""
+        self.controller.set_gains(kp_xy, ki_xy, kd_xy, kp_z, ki_z, kd_z)
 
     def evaluate_trajectory(self, t):
         """
@@ -172,8 +175,64 @@ class Drone:
             self.update_dynamics(dt)
 
     def update_dynamics(self, dt):
-        """Placeholder for Step 2 Dynamic calculations."""
-        pass
+        """
+        Step 2+: Physical simulation of translation and tilt.
+        Uses a cascade model: horizontal forces calculate tilt target angles,
+        which vector the main thrust.
+        """
+        g = 9.81
+        
+        # 1. Ask controller for required translation forces F_demand
+        # F_demand is [Fx, Fy, Fz]
+        f_demand = self.controller.update(self.position, self.target_pos, dt)
+        
+        # 2. Total Thrust demand (with gravity feedforward to maintain hover)
+        thrust = f_demand[2] + self.mass * g
+        # Clamp thrust between 0 and max_thrust
+        thrust = np.clip(thrust, 0.0, self.max_thrust)
+        
+        # 3. Calculate target tilt angles (Roll, Pitch) from horizontal force demands
+        # Fx = thrust * sin(pitch) -> pitch_target = arcsin(Fx / thrust)
+        # Fy = -thrust * sin(roll) -> roll_target = -arcsin(Fy / thrust)
+        # Small angle approximation for stability:
+        max_tilt = 0.52  # ~30 degrees
+        
+        if thrust > 0.1:
+            pitch_target = np.clip(f_demand[0] / thrust, -max_tilt, max_tilt)
+            roll_target = np.clip(-f_demand[1] / thrust, -max_tilt, max_tilt)
+        else:
+            pitch_target = 0.0
+            roll_target = 0.0
+            
+        # 4. First-order angular motor lag (attitude response)
+        tau = 0.15  # seconds
+        self.tilt_angles[0] += (roll_target - self.tilt_angles[0]) / tau * dt
+        self.tilt_angles[1] += (pitch_target - self.tilt_angles[1]) / tau * dt
+        
+        # 5. Vector thrust force using actual tilt angles
+        r = self.tilt_angles[0]
+        p = self.tilt_angles[1]
+        
+        # Inertial forces from vectoring
+        # (For Step 2, we don't have drag or wind yet, that goes in Step 3!)
+        ax = (thrust / self.mass) * np.sin(p) * np.cos(r)
+        ay = -(thrust / self.mass) * np.sin(r)
+        az = (thrust / self.mass) * np.cos(p) * np.cos(r) - g
+        
+        self.acceleration = np.array([ax, ay, az], dtype=np.float64)
+        
+        # 6. Integrate acceleration to velocity and position (Euler-Cromer)
+        self.velocity += self.acceleration * dt
+        # Clamp maximum speed for numerical stability
+        max_speed = 15.0  # m/s
+        speed = np.linalg.norm(self.velocity)
+        if speed > max_speed:
+            self.velocity = (self.velocity / speed) * max_speed
+            
+        self.position += self.velocity * dt
+        
+        # State estimation
+        self.state = "FLYING"
 
     def to_dict(self):
         """Serializes drone telemetry for Ground Control Station transmission."""
