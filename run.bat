@@ -1,6 +1,6 @@
 @echo off
 echo =====================================================================
-echo              CYBERSWARM GCS & SIMULATOR STARTUP SERVICE
+echo              CYBERSWARM GCS ^& SIMULATOR STARTUP SERVICE
 echo =====================================================================
 
 :: 1. Check if node_modules exists, if not install
