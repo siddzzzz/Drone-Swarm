@@ -10,8 +10,8 @@ class PIDController:
         self.prev_error = 0.0
         self.max_integral = max_integral
         
-    def update(self, error, dt):
-        """Discrete-time PID calculation with anti-windup clamping."""
+    def update(self, error, velocity, dt):
+        """Discrete-time PID calculation using derivative on measurement (velocity)."""
         if dt < 1e-5:
             return 0.0
             
@@ -23,14 +23,13 @@ class PIDController:
         self.integral = np.clip(self.integral, -self.max_integral, self.max_integral)
         i_term = self.ki * self.integral
         
-        # 3. Derivative Term
-        d_term = self.kd * (error - self.prev_error) / dt
-        self.prev_error = error
+        # 3. Derivative Term on measurement (Dampens physical velocity to prevent overshoot)
+        d_term = -self.kd * velocity
         
         return p_term + i_term + d_term
 
     def reset(self):
-        """Clears controller history to prevent sudden jump spikes on path change."""
+        """Clears controller history."""
         self.integral = 0.0
         self.prev_error = 0.0
 
@@ -59,7 +58,7 @@ class PositionController3D:
         self.pid_z.ki = ki_z
         self.pid_z.kd = kd_z
 
-    def update(self, current_pos, target_pos, dt):
+    def update(self, current_pos, target_pos, current_vel, dt):
         """
         Computes desired translational force vector (Fx, Fy, Fz) to drive
         the drone from current_pos to target_pos.
@@ -67,9 +66,9 @@ class PositionController3D:
         error = target_pos - current_pos
         
         # Compute force demands
-        fx = self.pid_x.update(error[0], dt)
-        fy = self.pid_y.update(error[1], dt)
-        fz = self.pid_z.update(error[2], dt)
+        fx = self.pid_x.update(error[0], current_vel[0], dt)
+        fy = self.pid_y.update(error[1], current_vel[1], dt)
+        fz = self.pid_z.update(error[2], current_vel[2], dt)
         
         return np.array([fx, fy, fz], dtype=np.float64)
         

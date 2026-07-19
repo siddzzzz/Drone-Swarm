@@ -184,10 +184,14 @@ class Drone:
         
         # 1. Ask controller for required translation forces F_demand
         # F_demand is [Fx, Fy, Fz]
-        f_demand = self.controller.update(self.position, self.target_pos, dt)
+        f_demand = self.controller.update(self.position, self.target_pos, self.velocity, dt)
         
-        # 2. Total Thrust demand (with gravity feedforward to maintain hover)
-        thrust = f_demand[2] + self.mass * g
+        # Cosine of actual tilt angles (pitch is index 1, roll is index 0)
+        cos_tilt = np.cos(self.tilt_angles[0]) * np.cos(self.tilt_angles[1])
+        cos_tilt = max(cos_tilt, 0.5)  # clamp to prevent division by zero / extreme angles
+        
+        # 2. Total Thrust demand (with gravity feedforward and tilt projection compensation)
+        thrust = (f_demand[2] + self.mass * g) / cos_tilt
         # Clamp thrust between 0 and max_thrust
         thrust = np.clip(thrust, 0.0, self.max_thrust)
         
