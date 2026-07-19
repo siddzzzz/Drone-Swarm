@@ -22,6 +22,14 @@ class SimulatorServer:
         self.loop_hz = 60
         self.is_running = True
         
+        # PID default gains (xy=translation, z=altitude)
+        self.kp_xy = 3.5
+        self.ki_xy = 0.15
+        self.kd_xy = 2.2
+        self.kp_z = 4.5
+        self.ki_z = 0.2
+        self.kd_z = 2.8
+        
         self.reset_simulation()
         
     def reset_simulation(self):
@@ -40,17 +48,22 @@ class SimulatorServer:
             start_pos = waypoints[0] if len(waypoints) > 0 else [0.0, 0.0, 0.0]
             drone = Drone(drone_id=i, initial_pos=start_pos)
             drone.set_mission_waypoints(waypoints, times, loop=loop, colors=colors)
+            
+            # Apply dynamic/kinematic state based on active step
+            drone.is_kinematic = (self.current_step == 1)
+            # Apply server's current PID gains
+            drone.set_pid_gains(self.kp_xy, self.ki_xy, self.kd_xy, self.kp_z, self.ki_z, self.kd_z)
+            
             temp_drones.append(drone)
             
         # 3. Pre-compute and cache reference paths for GCS path lines (only once per shape reset!)
-        # We sample each drone's local spline solver at 50 points.
+        # We sample each drone's local spline solver at 50 points. Done for all steps to show reference overlay.
         temp_paths = []
-        if self.current_step == 1:
-            for drone in temp_drones:
-                if len(drone.waypoints) > 1:
-                    times = np.linspace(drone.waypoint_times[0], drone.waypoint_times[-1], 50)
-                    sample_path = [drone.evaluate_trajectory(t).tolist() for t in times]
-                    temp_paths.append(sample_path)
+        for drone in temp_drones:
+            if len(drone.waypoints) > 1:
+                times = np.linspace(drone.waypoint_times[0], drone.waypoint_times[-1], 50)
+                sample_path = [drone.evaluate_trajectory(t).tolist() for t in times]
+                temp_paths.append(sample_path)
                     
         # Atomic assignments to prevent concurrency race conditions in simulation_loop
         self.cached_paths = temp_paths
@@ -87,6 +100,19 @@ class SimulatorServer:
             elif msg_type == "set_path_type":
                 self.path_type = data.get("value")
                 self.reset_simulation()
+                
+            elif msg_type == "set_pid":
+                self.kp_xy = float(data.get("kp_xy", 3.5))
+                self.ki_xy = float(data.get("ki_xy", 0.15))
+                self.kd_xy = float(data.get("kd_xy", 2.2))
+                self.kp_z = float(data.get("kp_z", 4.5))
+                self.ki_z = float(data.get("ki_z", 0.2))
+                self.kd_z = float(data.get("kd_z", 2.8))
+                
+                # Apply live gains to all active drones
+                for drone in self.drones:
+                    drone.set_pid_gains(self.kp_xy, self.ki_xy, self.kd_xy, self.kp_z, self.ki_z, self.kd_z)
+                print(f"GCS updated PID gains: XY=[{self.kp_xy}, {self.ki_xy}, {self.kd_xy}] Z=[{self.kp_z}, {self.ki_z}, {self.kd_z}]")
                 
         except Exception as e:
             print(f"Error handling message: {e}")
