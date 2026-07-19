@@ -2,6 +2,7 @@ import { SceneManager } from './visualizer/SceneManager.js';
 import { DroneVisuals } from './visualizer/DroneVisuals.js';
 import { TrajectoryVisuals } from './visualizer/TrajectoryVisuals.js';
 import { HUDController } from './ui/HUDController.js';
+import { ChartPlotter } from './ui/ChartPlotter.js';
 
 class App {
   constructor() {
@@ -9,6 +10,7 @@ class App {
     this.droneVisuals = null;
     this.trajectoryVisuals = null;
     this.hud = null;
+    this.chart = null;
     
     this.socket = null;
     this.wsUrl = 'ws://127.0.0.1:8765';
@@ -32,6 +34,9 @@ class App {
         this.sendSocketMessage.bind(this),
         this.sceneManager
       );
+      
+      // 3. Initialize PID Altitude Chart
+      this.chart = new ChartPlotter('pid-chart');
       
       // 3. Connect to Web Socket Simulation Server
       this.connectSocket();
@@ -138,6 +143,12 @@ class App {
     
     // Update stats widgets on GCS Cockpit HUD
     this.hud.updateStats(droneCount, avgBattery, collisionCount, this.fps);
+    
+    // 4. Update dynamic PID tracking chart (for Drone 0 in Step 2+)
+    if (drones.length > 0 && this.chart && data.step >= 2) {
+      const drone0 = drones[0];
+      this.chart.push(drone0.tz, drone0.z);
+    }
   }
 
   animate() {

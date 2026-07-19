@@ -60,7 +60,7 @@
               <span class="step-sub">2D & 3D Splines</span>
             </div>
           </button>
-          <button class="step-btn locked" data-step="2" disabled>
+          <button class="step-btn" data-step="2">
             <span class="step-num">02</span>
             <div class="step-info">
               <span class="step-title">PID Flight Control</span>
@@ -135,9 +135,70 @@
             </div>
           </div>
           
-          <!-- Step 2 Controls Placeholder -->
+          <!-- Step 2 Controls -->
           <div id="step-2-controls" class="step-controls-panel">
-            <!-- Will be populated in Step 2 -->
+            <p class="description-text">
+              We are in <strong>Step 2: PID Flight Control</strong>. 
+              Drones calculate vertical and horizontal thrust vectors to fly to targets. You can tune translation and altitude PID parameters live:
+            </p>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Horizontal Kp (XY)</span>
+                <span id="val-kp-xy" class="slider-value">3.5</span>
+              </div>
+              <input type="range" id="slide-kp-xy" min="0.5" max="10.0" step="0.1" value="3.5">
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Horizontal Ki (XY)</span>
+                <span id="val-ki-xy" class="slider-value">0.15</span>
+              </div>
+              <input type="range" id="slide-ki-xy" min="0.0" max="1.5" step="0.01" value="0.15">
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Horizontal Kd (XY)</span>
+                <span id="val-kd-xy" class="slider-value">2.2</span>
+              </div>
+              <input type="range" id="slide-kd-xy" min="0.1" max="8.0" step="0.1" value="2.2">
+            </div>
+
+            <div class="slider-group" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+              <div class="slider-header">
+                <span class="slider-label">Vertical Kp (Z)</span>
+                <span id="val-kp-z" class="slider-value">4.5</span>
+              </div>
+              <input type="range" id="slide-kp-z" min="0.5" max="10.0" step="0.1" value="4.5">
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Vertical Ki (Z)</span>
+                <span id="val-ki-z" class="slider-value">0.20</span>
+              </div>
+              <input type="range" id="slide-ki-z" min="0.0" max="1.5" step="0.01" value="0.20">
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Vertical Kd (Z)</span>
+                <span id="val-kd-z" class="slider-value">2.8</span>
+              </div>
+              <input type="range" id="slide-kd-z" min="0.1" max="8.0" step="0.1" value="2.8">
+            </div>
+
+            <!-- Altitude tracking chart -->
+            <div class="chart-box" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+              <span class="stat-label" style="display: block; margin-bottom: 5px; font-size: 0.65rem;">ALTITUDE TRACKING (DRONE 0)</span>
+              <canvas id="pid-chart" width="298" height="110" style="background: rgba(0, 0, 0, 0.3); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); display: block;"></canvas>
+              <div style="display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--text-secondary); margin-top: 4px; padding: 0 4px;">
+                <span><span style="color: #00f2fe; margin-right: 4px;">●</span>Target Z</span>
+                <span><span style="color: #39ff14; margin-right: 4px;">●</span>Actual Z</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

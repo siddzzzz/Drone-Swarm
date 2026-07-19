@@ -94,6 +94,35 @@ export class HUDController {
       this.cameraController.setCameraPosition(0, 5, 25, 0, 5, 0);
       this.logTerminal("[GCS] Camera view set to FRONT PROFILE.");
     });
+
+    // 5. PID Sliders (Step 2 live tuning)
+    const pidSliders = ['kp-xy', 'ki-xy', 'kd-xy', 'kp-z', 'ki-z', 'kd-z'];
+    pidSliders.forEach(pid => {
+      const slider = document.getElementById(`slide-${pid}`);
+      const valueSpan = document.getElementById(`val-${pid}`);
+      if (slider && valueSpan) {
+        slider.addEventListener('input', () => {
+          valueSpan.textContent = slider.value;
+          this.sendPIDUpdate();
+        });
+      }
+    });
+  }
+
+  sendPIDUpdate() {
+    const getVal = (id) => {
+      const el = document.getElementById(id);
+      return el ? parseFloat(el.value) : 0.0;
+    };
+    this.sendSocketMessage({
+      type: "set_pid",
+      kp_xy: getVal('slide-kp-xy'),
+      ki_xy: getVal('slide-ki-xy'),
+      kd_xy: getVal('slide-kd-xy'),
+      kp_z: getVal('slide-kp-z'),
+      ki_z: getVal('slide-ki-z'),
+      kd_z: getVal('slide-kd-z')
+    });
   }
 
   // Update Status HUD elements from telemetry data
