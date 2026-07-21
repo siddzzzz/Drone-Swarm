@@ -105,9 +105,9 @@ class SimulatorServer:
                 self.kp_xy = float(data.get("kp_xy", 3.5))
                 self.ki_xy = float(data.get("ki_xy", 0.15))
                 self.kd_xy = float(data.get("kd_xy", 2.2))
-                self.kp_z = float(data.get("kp_z", 4.5))
-                self.ki_z = float(data.get("ki_z", 0.2))
-                self.kd_z = float(data.get("kd_z", 2.8))
+                self.kp_z = float(data.get("kp_z", 3.0))
+                self.ki_z = float(data.get("ki_z", 0.05))
+                self.kd_z = float(data.get("kd_z", 3.2))
                 
                 # Apply live gains to all active drones
                 for drone in self.drones:
