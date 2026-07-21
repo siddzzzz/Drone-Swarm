@@ -86,8 +86,9 @@ class Drone:
         t0 = self.waypoint_times[idx]
         t1 = self.waypoint_times[idx+1]
         
-        # Normalized segment time (0 to 1)
-        u = (t - t0) / (t1 - t0)
+        # Normalized segment time (0 to 1) with S-curve ease-in ease-out (smootherstep)
+        u_raw = (t - t0) / (t1 - t0)
+        u = 10.0 * (u_raw ** 3) - 15.0 * (u_raw ** 4) + 6.0 * (u_raw ** 5)
         
         # Get 4 control points for Catmull-Rom spline
         p1 = self.waypoints[idx]
