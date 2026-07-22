@@ -82,9 +82,9 @@ class PathPlanner:
             times = [0.0, 4.0, 7.0, 15.0, 19.0, 27.0, 31.0, 39.0, 43.0, 51.0, 55.0, 63.0, 66.0, 70.0]
             
             # Generate grids
-            grid_base = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=0.0)
-            grid_hover = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=3.0)
-            grid_standby = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=1.0)
+            grid_base = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=0.25)
+            grid_hover = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=3.5)
+            grid_standby = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=2.0)
             
             # Master records for each drone
             drone_wps = [[grid_base[i]] for i in range(num_drones)]
@@ -100,13 +100,13 @@ class PathPlanner:
             # Sequence of target shapes, their coordinate generators, and active colors
             shapes_schedule = [
                 # Sphere (t=15s, hold until 19s)
-                ("sphere", lambda n: SwarmCoordinator.get_sphere_shape(n, radius=8.0, center_height=10.0), "#0055FF"),
+                ("sphere", lambda n: SwarmCoordinator.get_sphere_shape(n, radius=8.0, center_height=12.0), "#0055FF"),
                 # Star (t=27s, hold until 31s)
-                ("star", lambda n: SwarmCoordinator.get_star_shape(n, radius=9.0, center_height=10.0), "#FFD700"),
+                ("star", lambda n: SwarmCoordinator.get_star_shape(n, radius=9.0, center_height=12.0), "#FFD700"),
                 # Heart (t=39s, hold until 43s)
-                ("heart", lambda n: SwarmCoordinator.get_heart_shape(n, scale=0.55, center_height=10.0), "#FF2A5F"),
+                ("heart", lambda n: SwarmCoordinator.get_heart_shape(n, scale=0.55, center_height=12.0), "#FF2A5F"),
                 # Pyramid (t=51s, hold until 55s)
-                ("pyramid", lambda n: SwarmCoordinator.get_pyramid_shape(n, base_width=11.0, height=9.0, base_height=4.0), "#39FF14")
+                ("pyramid", lambda n: SwarmCoordinator.get_pyramid_shape(n, base_width=11.0, height=9.0, base_height=4.5), "#39FF14")
             ]
             
             for shape_name, shape_gen, shape_color in shapes_schedule:
@@ -124,11 +124,11 @@ class PathPlanner:
                 
                 M = len(fitted_points)
                 
-                # 4. Safety Ground Shift: Shift shape upwards if it drops below the 2.0m safety margin
+                # 4. Safety Ground Shift: Shift shape upwards if it drops below the 3.5m safety margin
                 if M > 0:
                     min_z = min(pt[2] for pt in fitted_points)
-                    if min_z < 2.0:
-                        z_shift = 2.0 - min_z
+                    if min_z < 3.5:
+                        z_shift = 3.5 - min_z
                         fitted_points = [np.array([pt[0], pt[1], pt[2] + z_shift]) for pt in fitted_points]
                 
                 # 4. Construct cost matrix to pair drones to shapes or standby targets

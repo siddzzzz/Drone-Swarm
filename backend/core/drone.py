@@ -236,6 +236,12 @@ class Drone:
             
         self.position += self.velocity * dt
         
+        # Hard floor ground collision boundary (cannot pass below Z=0.0)
+        if self.position[2] < 0.0:
+            self.position[2] = 0.0
+            if self.velocity[2] < 0.0:
+                self.velocity[2] = 0.0
+                
         # State estimation
         self.state = "FLYING"
 
