@@ -129,20 +129,23 @@ class App {
     // 3. Compute telemetry stats
     const droneCount = drones.length;
     let totalBattery = 0;
+    let failsafeCount = 0;
     drones.forEach(d => {
       totalBattery += d.battery;
+      if (d.state === "FAILSAFE_LAND") {
+        failsafeCount++;
+      }
     });
     const avgBattery = droneCount > 0 ? (totalBattery / droneCount) : 0;
     
     // Collisions counter (will calculate in Step 4 in python, let's read or default to 0)
     let collisionCount = 0;
-    // We can count active warnings if sent
     if (data.collisions !== undefined) {
       collisionCount = data.collisions;
     }
     
     // Update stats widgets on GCS Cockpit HUD
-    this.hud.updateStats(droneCount, avgBattery, collisionCount, this.fps);
+    this.hud.updateStats(droneCount, avgBattery, collisionCount, this.fps, failsafeCount);
     
     // 4. Update dynamic PID tracking chart (for Drone 0 in Step 2+)
     if (drones.length > 0 && this.chart && data.step >= 2) {

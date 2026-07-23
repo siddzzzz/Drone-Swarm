@@ -107,6 +107,18 @@ export class HUDController {
         });
       }
     });
+
+    // 6. Weather Sliders (Step 3 live environmental physics)
+    ['wind-speed', 'wind-dir', 'gust'].forEach(param => {
+      const slider = document.getElementById(`slide-${param}`);
+      const valueSpan = document.getElementById(`val-${param}`);
+      if (slider && valueSpan) {
+        slider.addEventListener('input', () => {
+          valueSpan.textContent = param === 'wind-dir' ? `${slider.value}°` : slider.value;
+          this.sendWeatherUpdate();
+        });
+      }
+    });
   }
 
   sendPIDUpdate() {
@@ -125,12 +137,36 @@ export class HUDController {
     });
   }
 
+  sendWeatherUpdate() {
+    const getVal = (id) => {
+      const el = document.getElementById(id);
+      return el ? parseFloat(el.value) : 0.0;
+    };
+    this.sendSocketMessage({
+      type: "set_weather",
+      wind_speed: getVal('slide-wind-speed'),
+      wind_dir: getVal('slide-wind-dir'),
+      gust: getVal('slide-gust')
+    });
+  }
+
   // Update Status HUD elements from telemetry data
-  updateStats(numDrones, avgBattery, collisionCount, fps) {
+  updateStats(numDrones, avgBattery, collisionCount, fps, failsafeCount = 0) {
     if (this.droneCountVal) this.droneCountVal.textContent = numDrones;
     if (this.batteryVal) this.batteryVal.textContent = `${Math.round(avgBattery)}%`;
     if (this.collisionsVal) this.collisionsVal.textContent = collisionCount;
     if (this.fpsVal) this.fpsVal.textContent = Math.round(fps);
+
+    const alertBox = document.getElementById('failsafe-status-text');
+    if (alertBox) {
+      if (failsafeCount > 0) {
+        alertBox.className = "stat-value text-red";
+        alertBox.textContent = `ALERT: ${failsafeCount} DRONE(S) IN AUTO-LAND`;
+      } else {
+        alertBox.className = "stat-value text-green";
+        alertBox.textContent = "ALL SYSTEMS NOMINAL";
+      }
+    }
   }
 
   updateConnection(isConnected) {
