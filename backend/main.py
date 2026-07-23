@@ -4,6 +4,7 @@ import websockets
 import numpy as np
 from core.drone import Drone
 from core.path_planner import PathPlanner
+from core.physics import EnvironmentPhysics
 
 class SimulatorServer:
     def __init__(self, host="127.0.0.1", port=8765):
@@ -29,6 +30,9 @@ class SimulatorServer:
         self.kp_z = 3.0
         self.ki_z = 0.05
         self.kd_z = 3.2
+        
+        # Physics engine
+        self.physics = EnvironmentPhysics()
         
         self.reset_simulation()
         
@@ -114,6 +118,13 @@ class SimulatorServer:
                     drone.set_pid_gains(self.kp_xy, self.ki_xy, self.kd_xy, self.kp_z, self.ki_z, self.kd_z)
                 print(f"GCS updated PID gains: XY=[{self.kp_xy}, {self.ki_xy}, {self.kd_xy}] Z=[{self.kp_z}, {self.ki_z}, {self.kd_z}]")
                 
+            elif msg_type == "set_weather":
+                wind_speed = float(data.get("wind_speed", 0.0))
+                wind_dir = float(data.get("wind_dir", 0.0))
+                gust = float(data.get("gust", 0.0))
+                self.physics.set_weather(wind_speed, wind_dir, gust)
+                print(f"GCS updated weather: Speed={wind_speed}m/s, Dir={wind_dir}deg, Gust={gust}m/s")
+                
         except Exception as e:
             print(f"Error handling message: {e}")
 
@@ -128,16 +139,25 @@ class SimulatorServer:
         while self.is_running:
             start_time = asyncio.get_event_loop().time()
             
-            # Step 1: Tell each drone to update its state based on elapsed time dt
-            # Each drone independently evaluates its local spline trajectory and moves.
+            # Step 1: Tell each drone to update its state based on elapsed time dt and physics
+            # Each drone independently evaluates its local spline trajectory, PID vector forces, drag, and battery.
             for drone in self.drones:
-                drone.update(dt)
+                drone.update(dt, self.physics)
                 
+            now_t = asyncio.get_event_loop().time()
+            wind_vec = self.physics.get_wind_vector(now_t).tolist()
+            
             telemetry = {
                 "type": "telemetry",
                 "step": self.current_step,
                 "drones": [drone.to_dict() for drone in self.drones],
-                "paths": self.cached_paths
+                "paths": self.cached_paths,
+                "wind": {
+                    "speed": self.physics.wind_speed,
+                    "dir": self.physics.wind_direction,
+                    "gust": self.physics.gust_intensity,
+                    "vec": wind_vec
+                }
             }
             
             await self.broadcast(json.dumps(telemetry))
