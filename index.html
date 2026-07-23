@@ -67,7 +67,7 @@
               <span class="step-sub">Quadcopter Translation</span>
             </div>
           </button>
-          <button class="step-btn locked" data-step="3" disabled>
+          <button class="step-btn" data-step="3">
             <span class="step-num">03</span>
             <div class="step-info">
               <span class="step-title">Physics & Wind</span>
@@ -198,6 +198,44 @@
                 <span><span style="color: #00f2fe; margin-right: 4px;">●</span>Target Z</span>
                 <span><span style="color: #39ff14; margin-right: 4px;">●</span>Actual Z</span>
               </div>
+            </div>
+          </div>
+
+          <!-- Step 3 Controls -->
+          <div id="step-3-controls" class="step-controls-panel">
+            <p class="description-text">
+              We are in <strong>Step 3: Environmental Physics & Hardware Failsafes</strong>. 
+              Inject wind, turbulence gusts, and drag. Drones burn battery proportional to thrust and execute emergency auto-landing if battery drops below 15%:
+            </p>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Wind Speed (m/s)</span>
+                <span id="val-wind-speed" class="slider-value">0.0</span>
+              </div>
+              <input type="range" id="slide-wind-speed" min="0.0" max="15.0" step="0.5" value="0.0">
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Wind Direction (Deg)</span>
+                <span id="val-wind-dir" class="slider-value">0°</span>
+              </div>
+              <input type="range" id="slide-wind-dir" min="0" max="360" step="5" value="0">
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Gust Turbulence (m/s)</span>
+                <span id="val-gust" class="slider-value">0.0</span>
+              </div>
+              <input type="range" id="slide-gust" min="0.0" max="5.0" step="0.1" value="0.0">
+            </div>
+
+            <!-- Failsafe Status Readout -->
+            <div class="stat-box" style="margin-top: 15px; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <span class="stat-label">FAILSAFE ALERTS</span>
+              <div id="failsafe-status-text" class="stat-value text-green" style="font-size: 0.9rem; margin-top: 4px;">ALL SYSTEMS NOMINAL</div>
             </div>
           </div>
         </div>
