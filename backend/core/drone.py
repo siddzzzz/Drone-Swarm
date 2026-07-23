@@ -153,7 +153,7 @@ class Drone:
         else:
             self.state = "FLYING"
 
-    def update(self, dt):
+    def update(self, dt, physics_engine=None):
         """
         Updates the drone's position and control systems.
         """
@@ -172,16 +172,31 @@ class Drone:
             # Step 1: Teleport exactly to planned target (Ideal Path Follower)
             self.position = np.copy(self.target_pos)
         else:
-            # Step 2+: Position control via forces and PID loops
-            self.update_dynamics(dt)
+            # Step 2+: Position control via forces, drag physics, and PID loops
+            self.update_dynamics(dt, physics_engine)
 
-    def update_dynamics(self, dt):
+    def update_dynamics(self, dt, physics_engine=None):
         """
-        Step 2+: Physical simulation of translation and tilt.
+        Step 2+: Physical simulation of translation, tilt vectoring, air drag, and battery.
         Uses a cascade model: horizontal forces calculate tilt target angles,
-        which vector the main thrust.
+        which vector the main thrust alongside environmental drag forces.
         """
         g = 9.81
+        
+        # Check for active low battery failsafe
+        is_failsafe = (self.battery <= 15.0) and not self.is_kinematic
+        
+        if is_failsafe:
+            self.state = "FAILSAFE_LAND"
+            # Override target position to ground base grid location
+            if len(self.waypoints) > 0:
+                base_pos = self.waypoints[0]
+                self.target_pos = np.array([base_pos[0], base_pos[1], 0.25], dtype=np.float64)
+            # Override color to flashing emergency Amber/Red
+            if int(self.local_time * 4) % 2 == 0:
+                self.color = "#FF0000"  # Emergency Red
+            else:
+                self.color = "#FF8C00"  # Emergency Amber
         
         # 1. Ask controller for required translation forces F_demand
         # F_demand is [Fx, Fy, Fz]
@@ -197,9 +212,6 @@ class Drone:
         thrust = np.clip(thrust, 0.0, self.max_thrust)
         
         # 3. Calculate target tilt angles (Roll, Pitch) from horizontal force demands
-        # Fx = thrust * sin(pitch) -> pitch_target = arcsin(Fx / thrust)
-        # Fy = -thrust * sin(roll) -> roll_target = -arcsin(Fy / thrust)
-        # Small angle approximation for stability:
         max_tilt = 0.52  # ~30 degrees
         
         if thrust > 0.1:
@@ -214,15 +226,20 @@ class Drone:
         self.tilt_angles[0] += (roll_target - self.tilt_angles[0]) / tau * dt
         self.tilt_angles[1] += (pitch_target - self.tilt_angles[1]) / tau * dt
         
-        # 5. Vector thrust force using actual tilt angles
+        # 5. Vector thrust force & add Aerodynamic Drag (Step 3)
         r = self.tilt_angles[0]
         p = self.tilt_angles[1]
         
-        # Inertial forces from vectoring
-        # (For Step 2, we don't have drag or wind yet, that goes in Step 3!)
-        ax = (thrust / self.mass) * np.sin(p) * np.cos(r)
-        ay = -(thrust / self.mass) * np.sin(r)
-        az = (thrust / self.mass) * np.cos(p) * np.cos(r) - g
+        if physics_engine is not None:
+            wind_vec = physics_engine.get_wind_vector(self.local_time)
+            f_drag = physics_engine.compute_drag_force(self.velocity, wind_vec)
+        else:
+            f_drag = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+        
+        # Inertial forces from vectoring + drag
+        ax = (thrust / self.mass) * np.sin(p) * np.cos(r) + (f_drag[0] / self.mass)
+        ay = -(thrust / self.mass) * np.sin(r) + (f_drag[1] / self.mass)
+        az = (thrust / self.mass) * np.cos(p) * np.cos(r) - g + (f_drag[2] / self.mass)
         
         self.acceleration = np.array([ax, ay, az], dtype=np.float64)
         
@@ -242,8 +259,16 @@ class Drone:
             if self.velocity[2] < 0.0:
                 self.velocity[2] = 0.0
                 
-        # State estimation
-        self.state = "FLYING"
+        # 7. Battery Discharge Model (Step 3)
+        if not self.is_kinematic and self.battery > 0.0:
+            hover_thrust = self.mass * g
+            thrust_ratio = max(0.2, thrust / hover_thrust)
+            # Power consumption scales non-linearly with thrust demand
+            drain_rate = 0.08 * (thrust_ratio ** 1.5)  # % per second
+            self.battery = max(0.0, self.battery - drain_rate * dt)
+            
+        if not is_failsafe:
+            self.state = "FLYING"
 
     def to_dict(self):
         """Serializes drone telemetry for Ground Control Station transmission."""
