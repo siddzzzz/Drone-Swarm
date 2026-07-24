@@ -202,6 +202,17 @@ class Drone:
         # F_demand is [Fx, Fy, Fz]
         f_demand = self.controller.update(self.position, self.target_pos, self.velocity, dt)
         
+        # 1b. Wind Feedforward Trim Compensation:
+        # Predict drag force caused by steady wind and feed forward into force demand
+        if physics_engine is not None and physics_engine.wind_speed > 0.0:
+            wind_vec = physics_engine.get_wind_vector(self.local_time)
+            # Estimated drag force at current drone velocity
+            f_drag_est = physics_engine.compute_drag_force(self.velocity, wind_vec)
+            # Feedforward term: counter predicted aerodynamic drag force
+            f_demand[0] -= f_drag_est[0]
+            f_demand[1] -= f_drag_est[1]
+            f_demand[2] -= f_drag_est[2]
+        
         # Cosine of actual tilt angles (pitch is index 1, roll is index 0)
         cos_tilt = np.cos(self.tilt_angles[0]) * np.cos(self.tilt_angles[1])
         cos_tilt = max(cos_tilt, 0.5)  # clamp to prevent division by zero / extreme angles
