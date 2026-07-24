@@ -131,8 +131,22 @@ class PathPlanner:
                         z_shift = 3.5 - min_z
                         fitted_points = [np.array([pt[0], pt[1], pt[2] + z_shift]) for pt in fitted_points]
                 
-                # 4. Construct cost matrix to pair drones to shapes or standby targets
-                # If a drone doesn't fit, it is assigned to its own grid column at standby height (1m)
+                # 4. Construct cost matrix to pair drones to active shape vertices (M) or nearby perimeter standby points (N-M)
+                # Compute shape centroid & radius for nearby perimeter standby ring
+                shape_center = np.mean(fitted_points, axis=0) if M > 0 else np.array([0.0, 0.0, 12.0])
+                max_r = max([np.linalg.norm(pt[:2] - shape_center[:2]) for pt in fitted_points]) if M > 0 else 8.0
+                standby_radius = max_r + 3.0  # Standby perimeter ring offset 3.0m outside the active shape
+                
+                # Generate N standby perimeter target locations surrounding the active shape at shape height
+                perim_angles = np.linspace(0, 2 * np.pi, num_drones, endpoint=False)
+                standby_points = []
+                for k in range(num_drones):
+                    stby_x = shape_center[0] + standby_radius * np.cos(perim_angles[k])
+                    stby_y = shape_center[1] + standby_radius * np.sin(perim_angles[k])
+                    stby_z = shape_center[2]  # Match shape formation altitude
+                    standby_points.append(np.array([stby_x, stby_y, stby_z], dtype=np.float64))
+                
+                # Cost matrix: matches each drone to either an active vertex (cols 0..M-1) or a nearby perimeter point (cols M..N-1)
                 C = np.zeros((num_drones, num_drones))
                 for i in range(num_drones):
                     for j in range(num_drones):
@@ -140,14 +154,11 @@ class PathPlanner:
                             diff = prev_positions[i] - fitted_points[j]
                             C[i, j] = np.sum(diff * diff)
                         else:
-                            standby_idx = j - M
-                            if standby_idx == i:
-                                diff = prev_positions[i] - grid_standby[i]
-                                C[i, j] = np.sum(diff * diff)
-                            else:
-                                C[i, j] = 1e6 # force diagonal assignment for standby
+                            stby_target = standby_points[j - M]
+                            diff = prev_positions[i] - stby_target
+                            C[i, j] = np.sum(diff * diff)
                                 
-                # 5. Solve linear sum assignment
+                # 5. Solve global optimal Hungarian linear sum assignment
                 cols = SwarmCoordinator.solve_cost_matrix(C)
                 
                 # 6. Store waypoints and colors
@@ -158,8 +169,8 @@ class PathPlanner:
                         target_pos = fitted_points[target_col]
                         target_color = shape_color
                     else:
-                        # Pruned: Standby unlit hover
-                        target_pos = grid_standby[i]
+                        # Pruned: Hover nearby on perimeter ring at formation altitude with LED off
+                        target_pos = standby_points[target_col - M]
                         target_color = "#151720" # LED OFF color
                         
                     # Add reach waypoint and hold waypoint
