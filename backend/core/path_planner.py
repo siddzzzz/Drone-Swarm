@@ -81,10 +81,10 @@ class PathPlanner:
             # Timestamps including Hold intervals (14 key waypoint entries)
             times = [0.0, 4.0, 7.0, 15.0, 19.0, 27.0, 31.0, 39.0, 43.0, 51.0, 55.0, 63.0, 66.0, 70.0]
             
-            # Generate grids
-            grid_base = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=0.25)
-            grid_hover = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=3.5)
-            grid_standby = SwarmCoordinator.get_grid_shape(num_drones, spacing=1.8, height=2.0)
+            # Generate grids with wider launch pad spacing (2.5m)
+            grid_base = SwarmCoordinator.get_grid_shape(num_drones, spacing=2.5, height=0.25)
+            grid_hover = SwarmCoordinator.get_grid_shape(num_drones, spacing=2.5, height=3.5)
+            grid_standby = SwarmCoordinator.get_grid_shape(num_drones, spacing=2.5, height=2.0)
             
             # Master records for each drone
             drone_wps = [[grid_base[i]] for i in range(num_drones)]
@@ -97,16 +97,16 @@ class PathPlanner:
                 drone_colors[i].append("#00F2FE")
                 drone_colors[i].append("#00F2FE")
                 
-            # Sequence of target shapes, their coordinate generators, and active colors
+            # Sequence of complex target 3D shapes, their coordinate generators, and active colors
             shapes_schedule = [
-                # Sphere (t=15s, hold until 19s)
-                ("sphere", lambda n: SwarmCoordinator.get_sphere_shape(n, radius=8.0, center_height=12.0), "#0055FF"),
-                # Star (t=27s, hold until 31s)
-                ("star", lambda n: SwarmCoordinator.get_star_shape(n, radius=9.0, center_height=12.0), "#FFD700"),
-                # Heart (t=39s, hold until 43s)
-                ("heart", lambda n: SwarmCoordinator.get_heart_shape(n, scale=0.55, center_height=12.0), "#FF2A5F"),
-                # Pyramid (t=51s, hold until 55s)
-                ("pyramid", lambda n: SwarmCoordinator.get_pyramid_shape(n, base_width=11.0, height=9.0, base_height=4.5), "#39FF14")
+                # 1. 3D Footballer Kicking Soccer Ball (t=15s, hold until 19s)
+                ("footballer", lambda n: SwarmCoordinator.get_footballer_shape(n, scale=1.3, center_height=14.0), "#39FF14"),
+                # 2. Winnie-the-Pooh Bear with Honey Pot (t=27s, hold until 31s)
+                ("pooh_bear", lambda n: SwarmCoordinator.get_pooh_bear_shape(n, scale=1.2, center_height=14.0), "#FFD700"),
+                # 3. 3D Heart (t=39s, hold until 43s)
+                ("heart", lambda n: SwarmCoordinator.get_heart_shape(n, scale=0.65, center_height=14.0), "#FF2A5F"),
+                # 4. 3D Pyramid (t=51s, hold until 55s)
+                ("pyramid", lambda n: SwarmCoordinator.get_pyramid_shape(n, base_width=14.0, height=11.0, base_height=5.0), "#00F2FE")
             ]
             
             for shape_name, shape_gen, shape_color in shapes_schedule:
@@ -117,9 +117,9 @@ class PathPlanner:
                 raw_shape_points = shape_gen(num_drones)
                 
                 # 3. Enforce spacing and scale up or prune extra drones
-                # We enforce d_min safety margin = 1.4 meters, max scale = 2.0x
+                # We enforce d_min safety margin = 2.2 meters (drones are well separated!), max scale = 3.0x
                 fitted_points, pruned_indices = SwarmCoordinator.enforce_spacing(
-                    raw_shape_points, d_min=1.4, max_scale_factor=2.0
+                    raw_shape_points, d_min=2.2, max_scale_factor=3.0
                 )
                 
                 M = len(fitted_points)
