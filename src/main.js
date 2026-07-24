@@ -86,7 +86,7 @@ class App {
 
   sendSocketMessage(payload) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(jsonStringify(payload));
+      this.socket.send(JSON.stringify(payload));
     }
   }
 

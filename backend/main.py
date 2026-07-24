@@ -126,12 +126,22 @@ class SimulatorServer:
                 print(f"GCS updated weather: Speed={wind_speed}m/s, Dir={wind_dir}deg, Gust={gust}m/s")
                 
         except Exception as e:
+            import traceback
             print(f"Error handling message: {e}")
+            traceback.print_exc()
 
     async def broadcast(self, message):
         if not self.clients:
             return
-        await asyncio.gather(*[client.send(message) for client in self.clients])
+        # Create a snapshot copy of connected clients to prevent mutation errors
+        active_clients = list(self.clients)
+        for client in active_clients:
+            try:
+                await client.send(message)
+            except websockets.exceptions.ConnectionClosed:
+                self.clients.discard(client)
+            except Exception:
+                pass
 
     async def simulation_loop(self):
         """Core simulator loop running at 60Hz."""

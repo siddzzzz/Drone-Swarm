@@ -247,6 +247,43 @@ class SwarmCoordinator:
                 pos = u * c1 + v * c2 + w * apex
                 points.append(pos)
                 
+        return points[:num_drones]
+                
+    @staticmethod
+    def get_heart_shape(num_drones, scale=0.65, center_height=14.0):
+        """Generates a vertical 3D heart shape outline/grid in the XZ plane."""
+        points = []
+        t_vals = np.linspace(0, 2 * np.pi, num_drones, endpoint=False)
+        
+        for i, t in enumerate(t_vals):
+            x = 16 * (np.sin(t) ** 3) * scale
+            z = (13 * np.cos(t) - 5 * np.cos(2*t) - 2 * np.cos(3*t) - np.cos(4*t)) * scale + center_height
+            y = np.sin(t * 3) * 0.5
+            points.append(np.array([x, y, z], dtype=np.float64))
+            
+        return points
+
+    @staticmethod
+    def get_star_shape(num_drones, radius=10.0, center_height=14.0):
+        """Generates a vertical 3D star outline in the XZ plane."""
+        points = []
+        num_tips = 5
+        inner_radius = radius * 0.4
+        
+        for i in range(num_drones):
+            fraction = i / float(num_drones)
+            angle = fraction * 2 * np.pi
+            tip_angle = (angle * num_tips) % (2 * np.pi)
+            if tip_angle < np.pi:
+                r = inner_radius + (radius - inner_radius) * (tip_angle / np.pi)
+            else:
+                r = radius - (radius - inner_radius) * ((tip_angle - np.pi) / np.pi)
+                
+            x = r * np.cos(angle)
+            z = r * np.sin(angle) + center_height
+            y = np.cos(angle * 5) * 0.4
+            points.append(np.array([x, y, z], dtype=np.float64))
+            
         return points
 
     @staticmethod
