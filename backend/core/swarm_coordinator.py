@@ -351,3 +351,57 @@ class SwarmCoordinator:
         """Solves the assignment problem directly on a pre-computed cost matrix."""
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
         return col_ind
+
+    @staticmethod
+    def compute_apf_forces(drones, k_rep=15.0, r_safety=2.5):
+        """
+        Computes Artificial Potential Field (APF) short-range repulsive force vectors
+        between all pairs of active drones in the swarm.
+        F_rep = k_rep * (1/d - 1/r_safety) * (1/d^2) * unit_vector
+        """
+        n = len(drones)
+        apf_forces = [np.array([0.0, 0.0, 0.0], dtype=np.float64) for _ in range(n)]
+        
+        if n <= 1 or r_safety <= 1e-3 or k_rep <= 1e-3:
+            return apf_forces
+            
+        positions = [d.position for d in drones]
+        
+        for i in range(n):
+            for j in range(i + 1, n):
+                diff = positions[i] - positions[j]
+                dist = np.linalg.norm(diff)
+                
+                # Check if drones penetrate safety sphere radius
+                if 1e-4 < dist < r_safety:
+                    # Unit direction vector from drone j to drone i
+                    unit_dir = diff / dist
+                    # Repulsive force magnitude
+                    f_mag = k_rep * (1.0 / dist - 1.0 / r_safety) * (1.0 / (dist ** 2))
+                    # Clamp max force to prevent numerical instability
+                    f_mag = min(f_mag, 50.0)
+                    
+                    rep_vec = unit_dir * f_mag
+                    apf_forces[i] += rep_vec
+                    apf_forces[j] -= rep_vec
+                    
+        return apf_forces
+
+    @staticmethod
+    def check_proximity_collisions(drones, collision_threshold=1.0):
+        """
+        Calculates collision warning metric (number of drone pairs closer than collision_threshold).
+        """
+        n = len(drones)
+        collision_count = 0
+        if n <= 1:
+            return 0
+            
+        positions = [d.position for d in drones]
+        for i in range(n):
+            for j in range(i + 1, n):
+                dist = np.linalg.norm(positions[i] - positions[j])
+                if dist < collision_threshold:
+                    collision_count += 1
+                    
+        return collision_count
