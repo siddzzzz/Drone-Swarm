@@ -74,7 +74,7 @@
               <span class="step-sub">Disturbances & Failsafes</span>
             </div>
           </button>
-          <button class="step-btn locked" data-step="4" disabled>
+          <button class="step-btn" data-step="4">
             <span class="step-num">04</span>
             <div class="step-info">
               <span class="step-title">Swarm Formations</span>
@@ -236,6 +236,34 @@
             <div class="stat-box" style="margin-top: 15px; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
               <span class="stat-label">FAILSAFE ALERTS</span>
               <div id="failsafe-status-text" class="stat-value text-green" style="font-size: 0.9rem; margin-top: 4px;">ALL SYSTEMS NOMINAL</div>
+            </div>
+          </div>
+
+          <!-- Step 4 Controls -->
+          <div id="step-4-controls" class="step-controls-panel">
+            <p class="description-text">
+              We are in <strong>Step 4: Artificial Potential Field (APF) Collision Avoidance</strong>. 
+              Drones generate short-range repulsive force vectors away from nearby neighbors to avoid mid-air collisions during complex morphing:
+            </p>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Repulsion Strength (K_rep)</span>
+                <span id="val-k-rep" class="slider-value">15.0</span>
+              </div>
+              <input type="range" id="slide-k-rep" min="0.0" max="50.0" step="1.0" value="15.0">
+            </div>
+            
+            <div class="slider-group">
+              <div class="slider-header">
+                <span class="slider-label">Safety Radius (R_safety)</span>
+                <span id="val-r-safety" class="slider-value">2.5m</span>
+              </div>
+              <input type="range" id="slide-r-safety" min="1.0" max="6.0" step="0.1" value="2.5">
+            </div>
+
+            <div class="info-alert" style="margin-top: 15px;">
+              <strong>APF Physics:</strong> $F_{\text{rep}} = K_{\text{rep}} (\frac{1}{d} - \frac{1}{R_{\text{safety}}}) \frac{1}{d^2} \hat{r}$. When two drones approach closer than $R_{\text{safety}}$, repulsive forces push them safely apart!
             </div>
           </div>
         </div>

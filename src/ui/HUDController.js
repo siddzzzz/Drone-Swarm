@@ -119,6 +119,18 @@ export class HUDController {
         });
       }
     });
+
+    // 7. APF Collision Sliders (Step 4 live repulsion tuning)
+    ['k-rep', 'r-safety'].forEach(param => {
+      const slider = document.getElementById(`slide-${param}`);
+      const valueSpan = document.getElementById(`val-${param}`);
+      if (slider && valueSpan) {
+        slider.addEventListener('input', () => {
+          valueSpan.textContent = param === 'r-safety' ? `${slider.value}m` : slider.value;
+          this.sendAPFUpdate();
+        });
+      }
+    });
   }
 
   sendPIDUpdate() {
@@ -147,6 +159,18 @@ export class HUDController {
       wind_speed: getVal('slide-wind-speed'),
       wind_dir: getVal('slide-wind-dir'),
       gust: getVal('slide-gust')
+    });
+  }
+
+  sendAPFUpdate() {
+    const getVal = (id) => {
+      const el = document.getElementById(id);
+      return el ? parseFloat(el.value) : 0.0;
+    };
+    this.sendSocketMessage({
+      type: "set_apf",
+      k_rep: getVal('slide-k-rep'),
+      r_safety: getVal('slide-r-safety')
     });
   }
 
