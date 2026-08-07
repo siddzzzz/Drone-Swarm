@@ -31,8 +31,10 @@ class SimulatorServer:
         self.ki_z = 0.05
         self.kd_z = 3.2
         
-        # Physics engine
+        # Physics engine & APF parameters
         self.physics = EnvironmentPhysics()
+        self.k_rep = 15.0      # Repulsive force coefficient
+        self.r_safety = 2.5    # Safety sphere radius (meters)
         
         self.reset_simulation()
         
@@ -125,6 +127,11 @@ class SimulatorServer:
                 self.physics.set_weather(wind_speed, wind_dir, gust)
                 print(f"GCS updated weather: Speed={wind_speed}m/s, Dir={wind_dir}deg, Gust={gust}m/s")
                 
+            elif msg_type == "set_apf":
+                self.k_rep = float(data.get("k_rep", 15.0))
+                self.r_safety = float(data.get("r_safety", 2.5))
+                print(f"GCS updated APF collision parameters: K_rep={self.k_rep}, R_safety={self.r_safety}m")
+                
         except Exception as e:
             import traceback
             print(f"Error handling message: {e}")
@@ -149,19 +156,29 @@ class SimulatorServer:
         while self.is_running:
             start_time = asyncio.get_event_loop().time()
             
-            # Step 1: Tell each drone to update its state based on elapsed time dt and physics
-            # Each drone independently evaluates its local spline trajectory, PID vector forces, drag, and battery.
-            for drone in self.drones:
-                drone.update(dt, self.physics)
+            # 1. Compute APF short-range repulsive force vectors between all active drones (Step 4+)
+            from core.swarm_coordinator import SwarmCoordinator
+            if self.current_step >= 4:
+                apf_forces = SwarmCoordinator.compute_apf_forces(self.drones, k_rep=self.k_rep, r_safety=self.r_safety)
+            else:
+                apf_forces = [None] * len(self.drones)
+                
+            # 2. Tell each drone to update its state based on elapsed time dt, physics drag, and APF forces
+            for i, drone in enumerate(self.drones):
+                drone.update(dt, self.physics, apf_forces[i])
                 
             now_t = asyncio.get_event_loop().time()
             wind_vec = self.physics.get_wind_vector(now_t).tolist()
+            
+            # 3. Compute active collision warning metric (<1.5m proximity)
+            collision_count = SwarmCoordinator.check_proximity_collisions(self.drones, collision_threshold=1.5)
             
             telemetry = {
                 "type": "telemetry",
                 "step": self.current_step,
                 "drones": [drone.to_dict() for drone in self.drones],
                 "paths": self.cached_paths,
+                "collisions": collision_count,
                 "wind": {
                     "speed": self.physics.wind_speed,
                     "dir": self.physics.wind_direction,

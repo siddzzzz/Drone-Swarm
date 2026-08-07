@@ -153,7 +153,7 @@ class Drone:
         else:
             self.state = "FLYING"
 
-    def update(self, dt, physics_engine=None):
+    def update(self, dt, physics_engine=None, apf_force=None):
         """
         Updates the drone's position and control systems.
         """
@@ -172,8 +172,8 @@ class Drone:
             # Step 1: Teleport exactly to planned target (Ideal Path Follower)
             self.position = np.copy(self.target_pos)
         else:
-            # Step 2+: Position control via forces, drag physics, and PID loops
-            self.update_dynamics(dt, physics_engine)
+            # Step 2+: Position control via forces, drag physics, APF collision avoidance, and PID loops
+            self.update_dynamics(dt, physics_engine, apf_force)
 
     def update_dynamics(self, dt, physics_engine=None):
         """
@@ -246,11 +246,13 @@ class Drone:
             f_drag = physics_engine.compute_drag_force(self.velocity, wind_vec)
         else:
             f_drag = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+            
+        f_apf = apf_force if apf_force is not None else np.array([0.0, 0.0, 0.0], dtype=np.float64)
         
-        # Inertial forces from vectoring + drag
-        ax = (thrust / self.mass) * np.sin(p) * np.cos(r) + (f_drag[0] / self.mass)
-        ay = -(thrust / self.mass) * np.sin(r) + (f_drag[1] / self.mass)
-        az = (thrust / self.mass) * np.cos(p) * np.cos(r) - g + (f_drag[2] / self.mass)
+        # Inertial forces from vectoring + drag + APF Repulsion Force
+        ax = (thrust / self.mass) * np.sin(p) * np.cos(r) + ((f_drag[0] + f_apf[0]) / self.mass)
+        ay = -(thrust / self.mass) * np.sin(r) + ((f_drag[1] + f_apf[1]) / self.mass)
+        az = (thrust / self.mass) * np.cos(p) * np.cos(r) - g + ((f_drag[2] + f_apf[2]) / self.mass)
         
         self.acceleration = np.array([ax, ay, az], dtype=np.float64)
         
