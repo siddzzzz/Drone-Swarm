@@ -174,6 +174,18 @@ export class HUDController {
     });
   }
 
+  // Update Step 5 Show Orchestrator dashboard readouts
+  updateShowProgress(showData) {
+    if (!showData) return;
+    const phaseText = document.getElementById('show-phase-text');
+    const clockText = document.getElementById('show-time-clock');
+    const progressBar = document.getElementById('show-progress-bar');
+
+    if (phaseText) phaseText.textContent = showData.phase.replace(/_/g, ' ');
+    if (clockText) clockText.textContent = `${showData.time.toFixed(1)}s / 70.0s`;
+    if (progressBar) progressBar.style.width = `${showData.progress}%`;
+  }
+
   // Update Status HUD elements from telemetry data
   updateStats(numDrones, avgBattery, collisionCount, fps, failsafeCount = 0) {
     if (this.droneCountVal) this.droneCountVal.textContent = numDrones;
