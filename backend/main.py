@@ -5,6 +5,7 @@ import numpy as np
 from core.drone import Drone
 from core.path_planner import PathPlanner
 from core.physics import EnvironmentPhysics
+from core.show_orchestrator import ShowOrchestrator
 
 class SimulatorServer:
     def __init__(self, host="127.0.0.1", port=8765):
@@ -170,8 +171,15 @@ class SimulatorServer:
             now_t = asyncio.get_event_loop().time()
             wind_vec = self.physics.get_wind_vector(now_t).tolist()
             
-            # 3. Compute active collision warning metric (<1.5m proximity)
-            collision_count = SwarmCoordinator.check_proximity_collisions(self.drones, collision_threshold=1.5)
+            # 4. Compute Show Choreography timeline progress
+            show_info = None
+            if self.path_type == "show" and len(self.drones) > 0:
+                phase, progress_pct = ShowOrchestrator.get_show_progress(self.drones[0].local_time)
+                show_info = {
+                    "phase": phase,
+                    "progress": progress_pct,
+                    "time": round(self.drones[0].local_time % 70.0, 1)
+                }
             
             telemetry = {
                 "type": "telemetry",
@@ -179,6 +187,7 @@ class SimulatorServer:
                 "drones": [drone.to_dict() for drone in self.drones],
                 "paths": self.cached_paths,
                 "collisions": collision_count,
+                "show": show_info,
                 "wind": {
                     "speed": self.physics.wind_speed,
                     "dir": self.physics.wind_direction,
