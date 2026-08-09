@@ -81,7 +81,7 @@
               <span class="step-sub">APF & Hungarian Solver</span>
             </div>
           </button>
-          <button class="step-btn locked" data-step="5" disabled>
+          <button class="step-btn" data-step="5">
             <span class="step-num">05</span>
             <div class="step-info">
               <span class="step-title">Drone Show</span>
@@ -264,6 +264,36 @@
 
             <div class="info-alert" style="margin-top: 15px;">
               <strong>APF Physics:</strong> $F_{\text{rep}} = K_{\text{rep}} (\frac{1}{d} - \frac{1}{R_{\text{safety}}}) \frac{1}{d^2} \hat{r}$. When two drones approach closer than $R_{\text{safety}}$, repulsive forces push them safely apart!
+            </div>
+          </div>
+
+          <!-- Step 5 Controls -->
+          <div id="step-5-controls" class="step-controls-panel">
+            <p class="description-text">
+              We are in <strong>Step 5: Pre-Programmed Drone Show Choreography</strong>. 
+              The entire show runs automatically: timed keyframes, LED color synchronization, 3D shape morphing, physics, APF collision avoidance, and automated landing:
+            </p>
+            
+            <div class="stat-box" style="margin-top: 15px; background: rgba(0, 242, 254, 0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(0, 242, 254, 0.2);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="stat-label" style="font-size: 0.7rem;">ACTIVE SHOW PHASE</span>
+                <span id="show-time-clock" class="stat-value text-cyan" style="font-size: 0.8rem; font-family: monospace;">0.0s / 70.0s</span>
+              </div>
+              <div id="show-phase-text" class="stat-value text-pink" style="font-size: 1.1rem; margin-top: 6px; font-weight: bold; text-transform: uppercase;">PRE-FLIGHT READY</div>
+              
+              <!-- Progress Bar -->
+              <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 10px; overflow: hidden;">
+                <div id="show-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00f2fe, #ff2a5f); transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+
+            <div class="bullet-list" style="margin-top: 15px;">
+              <div class="bullet-item"><span class="bullet-dot text-cyan">•</span> <span><strong>Phase 1 (t=0-7s)</strong>: Takeoff & Pre-show Hover</span></div>
+              <div class="bullet-item"><span class="bullet-dot text-green">•</span> <span><strong>Phase 2 (t=15s)</strong>: 3D Footballer Kicking Ball</span></div>
+              <div class="bullet-item"><span class="bullet-dot text-gold">•</span> <span><strong>Phase 3 (t=27s)</strong>: 3D Winnie-the-Pooh Bear</span></div>
+              <div class="bullet-item"><span class="bullet-dot text-pink">•</span> <span><strong>Phase 4 (t=39s)</strong>: 3D Pulsing Heart</span></div>
+              <div class="bullet-item"><span class="bullet-dot text-cyan">•</span> <span><strong>Phase 5 (t=51s)</strong>: 3D Pyramid</span></div>
+              <div class="bullet-item"><span class="bullet-dot text-purple">•</span> <span><strong>Phase 6 (t=63-70s)</strong>: Touchdown Landing</span></div>
             </div>
           </div>
         </div>
