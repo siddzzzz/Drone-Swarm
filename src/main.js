@@ -147,6 +147,11 @@ class App {
     // Update stats widgets on GCS Cockpit HUD
     this.hud.updateStats(droneCount, avgBattery, collisionCount, this.fps, failsafeCount);
     
+    // Update Step 5 Show Orchestrator dashboard readouts
+    if (data.show) {
+      this.hud.updateShowProgress(data.show);
+    }
+    
     // 4. Update dynamic PID tracking chart (for Drone 0 in Step 2+)
     if (drones.length > 0 && this.chart && data.step >= 2) {
       const drone0 = drones[0];
