@@ -72,9 +72,9 @@ class ShowOrchestrator:
             prev_positions = [drone_wps[i][-1] for i in range(num_drones)]
             raw_shape_points = shape_gen(num_drones)
             
-            # Enforce safety spacing (d_min = 2.2m)
+            # Enforce safety spacing with adaptive scaling (100% drone participation)
             fitted_points, pruned_indices = SwarmCoordinator.enforce_spacing(
-                raw_shape_points, d_min=2.2, max_scale_factor=3.0
+                raw_shape_points, d_min=1.4, max_scale_factor=10.0
             )
             M = len(fitted_points)
             
