@@ -175,7 +175,7 @@ class Drone:
             # Step 2+: Position control via forces, drag physics, APF collision avoidance, and PID loops
             self.update_dynamics(dt, physics_engine, apf_force)
 
-    def update_dynamics(self, dt, physics_engine=None):
+    def update_dynamics(self, dt, physics_engine=None, apf_force=None):
         """
         Step 2+: Physical simulation of translation, tilt vectoring, air drag, and battery.
         Uses a cascade model: horizontal forces calculate tilt target angles,

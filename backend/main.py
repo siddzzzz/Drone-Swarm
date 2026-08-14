@@ -171,6 +171,9 @@ class SimulatorServer:
             now_t = asyncio.get_event_loop().time()
             wind_vec = self.physics.get_wind_vector(now_t).tolist()
             
+            # 3. Compute active collision warning metric (<1.5m proximity)
+            collision_count = SwarmCoordinator.check_proximity_collisions(self.drones, collision_threshold=1.5)
+            
             # 4. Compute Show Choreography timeline progress
             show_info = None
             if self.path_type == "show" and len(self.drones) > 0:
