@@ -361,52 +361,49 @@ class SwarmCoordinator:
     def compute_apf_forces(drones, k_rep=15.0, r_safety=2.5):
         """
         Computes Artificial Potential Field (APF) short-range repulsive force vectors
-        between all pairs of active drones in the swarm.
+        between all pairs of active drones in the swarm using fast NumPy vectorization.
         F_rep = k_rep * (1/d - 1/r_safety) * (1/d^2) * unit_vector
         """
         n = len(drones)
-        apf_forces = [np.array([0.0, 0.0, 0.0], dtype=np.float64) for _ in range(n)]
-        
         if n <= 1 or r_safety <= 1e-3 or k_rep <= 1e-3:
-            return apf_forces
+            return [np.zeros(3, dtype=np.float64) for _ in range(n)]
             
-        positions = [d.position for d in drones]
+        pos = np.array([d.position for d in drones], dtype=np.float64)  # shape (N, 3)
+        diff = pos[:, np.newaxis, :] - pos[np.newaxis, :, :]            # shape (N, N, 3): pos[i] - pos[j]
+        dist = np.linalg.norm(diff, axis=-1)                            # shape (N, N)
         
-        for i in range(n):
-            for j in range(i + 1, n):
-                diff = positions[i] - positions[j]
-                dist = np.linalg.norm(diff)
-                
-                # Check if drones penetrate safety sphere radius
-                if 1e-4 < dist < r_safety:
-                    # Unit direction vector from drone j to drone i
-                    unit_dir = diff / dist
-                    # Repulsive force magnitude
-                    f_mag = k_rep * (1.0 / dist - 1.0 / r_safety) * (1.0 / (dist ** 2))
-                    # Clamp max force to prevent numerical instability
-                    f_mag = min(f_mag, 50.0)
-                    
-                    rep_vec = unit_dir * f_mag
-                    apf_forces[i] += rep_vec
-                    apf_forces[j] -= rep_vec
-                    
-        return apf_forces
+        mask = (dist > 1e-4) & (dist < r_safety)
+        if not np.any(mask):
+            return [np.zeros(3, dtype=np.float64) for _ in range(n)]
+            
+        d_safe = np.where(mask, dist, 1.0)
+        unit_dir = np.where(mask[:, :, np.newaxis], diff / d_safe[:, :, np.newaxis], 0.0)
+        
+        f_mag = np.where(
+            mask,
+            np.minimum(k_rep * (1.0 / d_safe - 1.0 / r_safety) / (d_safe ** 2), 50.0),
+            0.0
+        )
+        rep_vecs = unit_dir * f_mag[:, :, np.newaxis]
+        forces = np.sum(rep_vecs, axis=1)  # shape (N, 3)
+        
+        return [forces[i] for i in range(n)]
 
     @staticmethod
     def check_proximity_collisions(drones, collision_threshold=1.0):
         """
-        Calculates collision warning metric (number of drone pairs closer than collision_threshold).
+        Calculates collision warning metric (number of drone pairs closer than collision_threshold) using vectorization.
         """
         n = len(drones)
-        collision_count = 0
         if n <= 1:
             return 0
             
-        positions = [d.position for d in drones]
-        for i in range(n):
-            for j in range(i + 1, n):
-                dist = np.linalg.norm(positions[i] - positions[j])
-                if dist < collision_threshold:
-                    collision_count += 1
-                    
-        return collision_count
+        pos = np.array([d.position for d in drones], dtype=np.float64)
+        diff = pos[:, np.newaxis, :] - pos[np.newaxis, :, :]
+        dist = np.linalg.norm(diff, axis=-1)
+        
+        # Take upper triangular indices (excluding diagonal) to count unique pairs
+        upper_indices = np.triu_indices(n, k=1)
+        pair_distances = dist[upper_indices]
+        return int(np.sum(pair_distances < collision_threshold))
+
